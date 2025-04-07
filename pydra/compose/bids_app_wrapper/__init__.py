@@ -3,13 +3,13 @@ This is a basic doctest demonstrating that the package and pydra can both be suc
 imported.
 
 >>> import pydra.engine
->>> import pydra.compose.CHANGEME
+>>> import pydra.compose.bids_app_wrapper
 """
 
 try:
     from ._version import __version__
 except ImportError:
     raise RuntimeError(
-        "Pydra package 'CHANGEME' has not been installed, please use "
+        "Pydra package 'bids_app_wrapper' has not been installed, please use "
         "`pip install -e <path-to-repo>` to install development version"
     )

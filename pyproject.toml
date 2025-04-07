@@ -3,8 +3,8 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
-name = "pydra-compose-CHANGEME"
-description = "Pydra compose package for CHANGEME"
+name = "pydra-compose-bids-app-wrapper"
+description = "Pydra compose package for wrapping BIDS Apps in Pydra tasks"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -12,8 +12,8 @@ dependencies = [
     "frametree-bids",
 ]
 license = {file = "LICENSE"}
-authors = [{name = "Nipype developers", email = "neuroimaging@python.org"}]
-maintainers = [{name = "Nipype developers", email = "neuroimaging@python.org"}]
+authors = [{name = "Thomas G. Close", email = "tom.g.close@gmail.com"}]
+maintainers = [{name = "Thomas G. Close", email = "tom.g.close@gmail.com"}]
 keywords = ["pydra"]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
@@ -53,11 +53,11 @@ test = [
 source = "vcs"
 
 [tool.hatch.build.hooks.vcs]
-version-file = "pydra/compose/CHANGEME/_version.py"
+version-file = "pydra/compose/bids_app_wrapper/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["pydra"]
-include-only = ["pydra/compose/CHANGEME"]
+include-only = ["pydra/compose/bids_app_wrapper"]
 
 [tool.black]
 target-version = ["py38"]
