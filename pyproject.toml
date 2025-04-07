@@ -8,7 +8,8 @@ description = "Pydra compose package for CHANGEME"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "pydra >=0.24",
+    "pydra >=1.0a",
+    "frametree-bids",
 ]
 license = {file = "LICENSE"}
 authors = [{name = "Nipype developers", email = "neuroimaging@python.org"}]
