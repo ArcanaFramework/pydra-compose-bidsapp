@@ -50,7 +50,7 @@ def test_bids_app_docker(
             *inpt.path.split("/")
         ).with_suffix(inpt.datatype.ext)
 
-    result = task(plugin="serial", **kwargs)
+    result = task(worker="debug", **kwargs)
 
     for output in BIDS_OUTPUTS:
         assert Path(getattr(result.output, output.name)).exists()
@@ -88,7 +88,7 @@ def test_bids_app_naked(
 
     shutil.rmtree(bids_dir, ignore_errors=True)
 
-    result = task(plugin="serial", **kwargs)
+    result = task(worker="debug", **kwargs)
 
     for output in BIDS_OUTPUTS:
         assert Path(getattr(result.output, output.name)).exists()
