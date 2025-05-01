@@ -17,7 +17,7 @@
 
 # -- Project information -----------------------------------------------------
 
-project = "pydra-compose-bids-app-wrapper"
+project = "pydra-compose-bidsapp"
 copyright = "2020, Xihe Xie"
 author = "Xihe Xie"
 

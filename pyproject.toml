@@ -3,7 +3,7 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
-name = "pydra-compose-bids-app-wrapper"
+name = "pydra-compose-bidsapp"
 description = "Pydra compose package for wrapping BIDS Apps in Pydra tasks"
 readme = "README.md"
 requires-python = ">=3.11"

@@ -12,3 +12,9 @@ except ImportError:
         "Pydra package 'bids_app_wrapper' has not been installed, please use "
         "`pip install -e <path-to-repo>` to install development version"
     )
+
+from .builder import define
+from .fields import arg, out
+from .task import BidsAppTask as Task, BidsAppOutputs as Outputs
+
+__all__ = ["arg", "out", "define", "Task", "Outputs", "__version__"]
