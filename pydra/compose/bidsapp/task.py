@@ -39,22 +39,23 @@ class BidsAppOutputs(base.Outputs):
         """
         outputs = super()._from_job(job)
         frameset: FrameSet = job.return_values["frameset"]
-        row = frameset.row(Clinical.session, DEFAULT_BIDS_ID)
         output_fields: ty.List[fields.out] = get_fields(cls)
         for output_field in output_fields:
             if output_field.path:
                 path = output_field.path
             else:
                 path = ""  # whole directory
-            path += "@" + cls.__name__
+            path += "@" + DEFAULT_DERIVATIVES_NAME
             frameset.add_sink(
                 output_field.name,
                 output_field.type,
                 path=path,
             )
+        frameset.reload()
+        row = frameset.row(Clinical.session, DEFAULT_BIDS_ID)
         with frameset.store.connection:
             for output_field in output_fields:
-                setattr(outputs, output_field.name, row[output_field.path])
+                setattr(outputs, output_field.name, row[output_field.name])
         return outputs
 
 
@@ -96,7 +97,7 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
     def _run(self, job: "Job[BidsAppTask]", rerun: bool = True) -> None:
         # Create a BIDS dataset and save input data into it
         job.return_values["frameset"] = frameset = self._create_dataset()
-        output_dir = Path(frameset.id) / "derivatives" / type(self).__name__
+        output_dir = Path(frameset.id) / "derivatives" / DEFAULT_DERIVATIVES_NAME
         cache_root = Path.cwd() / "internal-cache"
         work_dir = Path.cwd() / "work-dir"
         work_dir.mkdir(parents=True, exist_ok=True)
@@ -157,4 +158,5 @@ CONTAINER_DATASET_PATH = "/frametree_bids_dataset"
 
 DEFAULT_BIDS_ID = "DEFAULT"
 DEFAULT_FRAMESET_NAME = "DEFAULT"
+DEFAULT_DERIVATIVES_NAME = "DEFAULT"
 OUTPUT_DIR_NAME = "output-dir"
