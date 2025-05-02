@@ -53,11 +53,11 @@ test = [
 source = "vcs"
 
 [tool.hatch.build.hooks.vcs]
-version-file = "pydra/compose/bids_app_wrapper/_version.py"
+version-file = "pydra/compose/bidsapp/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["pydra"]
-include-only = ["pydra/compose/bids_app_wrapper"]
+include-only = ["pydra/compose/bidsapp"]
 
 [tool.black]
 target-version = ["py38"]

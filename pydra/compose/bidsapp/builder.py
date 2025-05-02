@@ -1,5 +1,7 @@
 import logging
 import typing as ty
+import re
+from pathlib import Path
 import inspect
 from typing import dataclass_transform
 from pydra.compose.base import (
@@ -8,7 +10,7 @@ from pydra.compose.base import (
     check_explicit_fields_are_none,
     extract_fields_from_class,
 )
-
+from pydra.compose import shell
 from .fields import arg, out
 from .task import BidsAppTask as Task
 from .task import BidsAppOutputs as Outputs
@@ -26,7 +28,7 @@ def define(
     /,
     inputs: list[str | arg] | dict[str, arg | type] | None = None,
     outputs: list[str | out] | dict[str, out | type] | type | None = None,
-    executable: str | None = None,
+    image_tag: str | None = None,
     bases: ty.Sequence[type] = (),
     outputs_bases: ty.Sequence[type] = (),
     auto_attribs: bool = True,
@@ -39,11 +41,15 @@ def define(
     Parameters
     ----------
     wrapped : type | callable | None
-        The function or class to create an interface for.
+        The executable to run the app (or entrypoint if running inside a container) or
+        class to create an interface for.
     inputs : list[str | Arg] | dict[str, Arg | type] | None
         The inputs to the function or class.
     outputs : list[str | base.Out] | dict[str, base.Out | type] | type | None
         The outputs of the function or class.
+    image_tag : str
+        the tag of the Docker image to use to run the container. If None, the executable
+        is assumed to be in the native env.
     auto_attribs : bool
         Whether to use auto_attribs mode when creating the class.
     name: str | None
@@ -61,15 +67,14 @@ def define(
 
     def make(wrapped: str | type) -> Task:
         if inspect.isclass(wrapped):
-            if executable is not None:
-                raise ValueError(
-                    "`exectuable` should be set as a class attribute if using canonical "
-                    "form of BidsAppTask definitions, not in define decorator "
-                    f"({executable!r})"
-                )
             klass = wrapped
-            image_tag = klass.image_tag
-            extracted_executable = klass.executable
+            executable = klass.executable
+            if image_tag is not None:
+                raise ValueError(
+                    f"Bids app image_tag of {wrapped} should be set as an attribute, not "
+                    "passed into the 'define' decorator"
+                )
+            img_tag = klass.image_tag
             class_name = klass.__name__
             check_explicit_fields_are_none(klass, inputs, outputs)
             parsed_inputs, parsed_outputs = extract_fields_from_class(
@@ -90,22 +95,45 @@ def define(
                     f"{wrapped!r}"
                 )
             klass = None
-            image_tag = wrapped
-            extracted_executable = executable
-            class_name = image_tag.split("/")[-1].split(":")[0]
+            executable = wrapped
+            img_tag = image_tag
+            if name is None:
+                if img_tag:
+                    class_name = img_tag.split("/")[-1].split(":")[0]
+                else:
+                    class_name = re.sub(
+                        r"[^\w]", "_", Path(executable).name.split(".")[0]
+                    )
+                    if class_name[0].isdigit():
+                        class_name = DIGIT_TO_WORD[class_name[0]] + class_name[1:]
+
+            parsed_inputs = (
+                inputs if isinstance(inputs, dict) else {i.name: i for i in inputs}
+            )
+            parsed_outputs = (
+                outputs if isinstance(outputs, dict) else {o.name: o for o in outputs}
+            )
+
+            # Add in fields from base classes
+            parsed_inputs.update({n: getattr(Task, n) for n in Task.BASE_ATTRS})
+            parsed_outputs.update({n: getattr(Outputs, n) for n in Outputs.BASE_ATTRS})
 
             parsed_inputs, parsed_outputs = ensure_field_objects(
                 arg_type=arg,
                 out_type=out,
-                inputs=inputs,
-                outputs=outputs,
+                inputs=parsed_inputs,
+                outputs=parsed_outputs,
+                input_helps={},
+                output_helps={},
             )
         if clashing := set(parsed_inputs) & set(["exectuable", "image_tag"]):
             raise ValueError(f"{list(clashing)} are reserved input names")
 
-        parsed_inputs["image_tag"] = arg(name="image_tag", type=str, default=image_tag)
         parsed_inputs["executable"] = arg(
-            name="executable", type=str, default=extracted_executable
+            name="executable", type=str, default=executable, path="not/used"
+        )
+        parsed_inputs["image_tag"] = arg(
+            name="image_tag", type=str | None, default=img_tag, path="not/used"
         )
 
         defn = build_task_class(
@@ -123,7 +151,21 @@ def define(
         return defn
 
     if wrapped is not None:
-        if not isinstance(wrapped, (ty.Callable, type)):
-            raise ValueError(f"wrapped must be a class or a callable, not {wrapped!r}")
+        if not isinstance(wrapped, (str, type)):
+            raise ValueError(f"wrapped must be a class or a str, not {wrapped!r}")
         return make(wrapped)
     return make
+
+
+DIGIT_TO_WORD = {
+    "0": "zero",
+    "1": "one",
+    "2": "two",
+    "3": "three",
+    "4": "four",
+    "5": "five",
+    "6": "six",
+    "7": "seven",
+    "8": "eight",
+    "9": "nine",
+}

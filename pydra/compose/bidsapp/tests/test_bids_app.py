@@ -4,7 +4,9 @@ from pathlib import Path
 import shutil
 import pytest
 from fileformats.medimage import NiftiGzX, NiftiGzXBvec
-from frametree.bids.tasks import bids_app, BidsInput, BidsOutput
+from pydra.compose import bidsapp
+from pydra.compose.bidsapp.task import DEFAULT_BIDS_ID
+from pydra.utils import asdict
 from fileformats.text import Plain as Text
 from fileformats.generic import Directory
 
@@ -14,14 +16,14 @@ MOCK_README = "A dummy readme\n" * 100
 MOCK_AUTHORS = ["Dumm Y. Author", "Another D. Author"]
 
 BIDS_INPUTS = [
-    BidsInput(name="T1w", path="anat/T1w", datatype=NiftiGzX),
-    BidsInput(name="T2w", path="anat/T2w", datatype=NiftiGzX),
-    BidsInput(name="dwi", path="dwi/dwi", datatype=NiftiGzXBvec),
+    bidsapp.arg(name="T1w", path="anat/T1w", type=NiftiGzX),
+    bidsapp.arg(name="T2w", path="anat/T2w", type=NiftiGzX),
+    bidsapp.arg(name="dwi", path="dwi/dwi", type=NiftiGzXBvec),
 ]
 BIDS_OUTPUTS = [
-    BidsOutput(name="whole_dir", datatype=Directory),  # whole derivative directory
-    BidsOutput(name="a_file", path="file1", datatype=Text),
-    BidsOutput(name="another_file", path="file2", datatype=Text),
+    bidsapp.out(name="whole_dir", type=Directory),  # whole derivative directory
+    bidsapp.out(name="a_file", path="file1", type=Text),
+    bidsapp.out(name="another_file", path="file2", type=Text),
 ]
 
 
@@ -36,13 +38,11 @@ def test_bids_app_docker(
 
     shutil.rmtree(bids_dir, ignore_errors=True)
 
-    task = bids_app(
-        name=MOCK_BIDS_APP_NAME,
-        container_image=bids_validator_app_image,
+    TestBids = bidsapp.define(
         executable=None,  # uses entrypoint
+        image_tag=bids_validator_app_image,
         inputs=BIDS_INPUTS,
         outputs=BIDS_OUTPUTS,
-        dataset=bids_dir,
     )
 
     for inpt in BIDS_INPUTS:
@@ -50,7 +50,9 @@ def test_bids_app_docker(
             *inpt.path.split("/")
         ).with_suffix(inpt.datatype.ext)
 
-    result = task(worker="debug", **kwargs)
+    task = TestBids(dataset=bids_dir, **kwargs)
+
+    result = task(worker="debug")
 
     for output in BIDS_OUTPUTS:
         assert Path(getattr(result.output, output.name)).exists()
@@ -70,25 +72,21 @@ def test_bids_app_naked(
 
     os.chmod(launch_sh, stat.S_IRWXU)
 
-    task = bids_app(
-        name=MOCK_BIDS_APP_NAME,
-        executable=launch_sh,  # Extracted using `docker_image_executable(docker_image)`
+    TestBids = bidsapp.define(
+        str(launch_sh),
         inputs=BIDS_INPUTS,
         outputs=BIDS_OUTPUTS,
-        app_output_dir=work_dir / "output",
     )
 
-    kwargs = {}
-    for inpt in BIDS_INPUTS:
-        kwargs[inpt.name] = nifti_sample_dir.joinpath(
-            *inpt.path.split("/")
-        ).with_suffix(inpt.datatype.ext)
+    task = TestBids(
+        **{
+            i.name: nifti_sample_dir.joinpath(*i.path.split("/")).with_suffix(
+                i.type.ext
+            )
+            for i in BIDS_INPUTS
+        },
+    )
+    outputs = task(worker="debug")
 
-    bids_dir = work_dir / "bids"
-
-    shutil.rmtree(bids_dir, ignore_errors=True)
-
-    result = task(worker="debug", **kwargs)
-
-    for output in BIDS_OUTPUTS:
-        assert Path(getattr(result.output, output.name)).exists()
+    for output in asdict(outputs).values():
+        assert Path(output).exists()

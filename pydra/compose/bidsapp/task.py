@@ -54,7 +54,7 @@ class BidsAppOutputs(base.Outputs):
             )
         with frameset.store.connection:
             for output_field in output_fields:
-                setattr(outputs, output_field.name, row[output_field.name])
+                setattr(outputs, output_field.name, row[output_field.path])
         return outputs
 
 
@@ -72,33 +72,42 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
         name="analysis_level",
         type=str,
         default="participant",
-        help_string="Level of analysis to run the app at",
+        help="Level of analysis to run the app at",
+        path="not/used",
     )
     json_edits: list[tuple[str, str]] = fields.arg(
-        name="json_edits", type=list[tuple[str, str]], factory=list
+        name="json_edits",
+        type=list[tuple[str, str]],
+        default=attrs.Factory(list),
+        path="not/used",
     )
     flags: str = fields.arg(
         name="flags",
         type=str,
         default="",
-        help_string=(
+        help=(
             "Additional flags to pass to the app. These are passed as a single string "
             "and should be formatted as they would be on the command line "
             "(e.g. '--flag1 --flag2 value')"
         ),
+        path="not/used",
     )
 
     def _run(self, job: "Job[BidsAppTask]", rerun: bool = True) -> None:
         # Create a BIDS dataset and save input data into it
         job.return_values["frameset"] = frameset = self._create_dataset()
-        output_dir = frameset.id / "derivatives" / type(self).__name__
+        output_dir = Path(frameset.id) / "derivatives" / type(self).__name__
         cache_root = Path.cwd() / "internal-cache"
+        work_dir = Path.cwd() / "work-dir"
+        work_dir.mkdir(parents=True, exist_ok=True)
         app = BidsApp(
             executable=self.executable,
-            dataset=frameset.id,
-            app_output_dir=output_dir,
+            dataset_path=frameset.id,
+            output_path=output_dir,
             analysis_level=self.analysis_level,
+            participant_label=DEFAULT_BIDS_ID,
             flags=self.flags,
+            work_dir=work_dir,
         )
         app(cache_root=cache_root, environment=job.environment)
 
@@ -124,15 +133,21 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
         # JsonEdit.attr_converter(
         #     self.json_edits + list(zip(je_args[::2], je_args[1::2]))
         # )
-        for inpt in inputs.values():
-            frameset.add_sink(inpt.name, inpt.datatype, path=inpt.path)
+        input_fields: list[fields.arg] = [
+            f
+            for f in get_fields(self)
+            if f.name not in self.BASE_ATTRS + ("executable", "image_tag")
+        ]
+        for inpt in input_fields:
+            frameset.add_sink(inpt.name, inpt.type, path=inpt.path)
         row = frameset.row(Clinical.session, DEFAULT_BIDS_ID)
         with frameset.store.connection:
-            for inpt_name, inpt_value in inputs.items():
-                if inpt_value is attrs.NOTHING:
-                    logger.warning("No input provided for '%s' input", inpt_name)
+            for inpt in input_fields:
+                inpt_value = inputs[inpt.name]
+                if not inpt_value:
+                    logger.warning("No input provided for '%s' input", inpt.name)
                     continue
-                row[inpt_name] = inpt_value
+                row[inpt.name] = inpt_value
         return frameset
 
 

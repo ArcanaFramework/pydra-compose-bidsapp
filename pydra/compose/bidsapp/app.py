@@ -6,6 +6,8 @@ from pydra.compose import shell
 @shell.define
 class BidsApp(shell.Task["BidsApp.Outputs"]):
 
+    executable: str = ""  # entrypoint of the container
+
     dataset_path: Directory = shell.arg(
         help="Path to BIDS dataset in the container",
         position=1,
@@ -22,32 +24,30 @@ class BidsApp(shell.Task["BidsApp.Outputs"]):
         help="The analysis level the app will be run at",
         position=3,
         argstr="",
+        default="participant",
+        allowed_values=["participant", "group"],
     )
 
-    participant_label: str = shell.arg(
+    participant_label: str | None = shell.arg(
         help="The IDs to include in the analysis",
         argstr="--participant-label ",
+        default=None,
         position=4,
     )
 
-    flags: str = shell.arg(
+    flags: str | None = shell.arg(
         help="Additional flags to pass to the app",
         argstr="",
+        default=None,
         position=-1,
     )
 
-    work_dir: Path = shell.arg(
+    work_dir: Path | None = shell.arg(
         help="Directory where the nipype temporary working directories will be stored",
         argstr="--work-dir '{work_dir}'",
+        default=None,
     )
 
-    setup_completed: bool = shell.arg(
-        help="Dummy field to ensure that the BIDS dataset construction completes first"
-    )
+    class Outputs(shell.Outputs):
 
-    class Outputs:
-
-        completed: bool = shell.arg(
-            help="a simple flag to indicate app has completed",
-            callable=lambda: True,
-        )
+        pass
