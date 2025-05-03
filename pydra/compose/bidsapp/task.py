@@ -8,6 +8,8 @@ from frametree.common import Clinical
 from frametree.bids.store import Bids
 from pydra.utils import asdict, get_fields
 from pydra.compose import base
+from pydra.environments.docker import Docker
+from pydra.environments.native import Native
 from . import fields
 from .app import BidsApp
 
@@ -51,7 +53,6 @@ class BidsAppOutputs(base.Outputs):
                 output_field.type,
                 path=path,
             )
-        frameset.reload()
         row = frameset.row(Clinical.session, DEFAULT_BIDS_ID)
         with frameset.store.connection:
             for output_field in output_fields:
@@ -97,7 +98,12 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
     def _run(self, job: "Job[BidsAppTask]", rerun: bool = True) -> None:
         # Create a BIDS dataset and save input data into it
         job.return_values["frameset"] = frameset = self._create_dataset()
-        output_dir = Path(frameset.id) / "derivatives" / DEFAULT_DERIVATIVES_NAME
+        output_dir = (
+            Path(frameset.id)
+            / "derivatives"
+            / DEFAULT_DERIVATIVES_NAME
+            / f"sub-{DEFAULT_BIDS_ID}"
+        )
         cache_root = Path.cwd() / "internal-cache"
         work_dir = Path.cwd() / "work-dir"
         work_dir.mkdir(parents=True, exist_ok=True)
@@ -110,7 +116,8 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
             flags=self.flags,
             work_dir=work_dir,
         )
-        app(cache_root=cache_root, environment=job.environment)
+        environment = Docker(self.image_tag) if self.image_tag else Native()
+        app(cache_root=cache_root, environment=environment)
 
     def _create_dataset(self) -> FrameSet:
         # Prepare the inputs to the function

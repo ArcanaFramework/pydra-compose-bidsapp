@@ -3,6 +3,7 @@ import typing as ty
 import re
 from pathlib import Path
 import inspect
+import docker.errors
 from typing import dataclass_transform
 from pydra.compose.base import (
     ensure_field_objects,
@@ -10,7 +11,6 @@ from pydra.compose.base import (
     check_explicit_fields_are_none,
     extract_fields_from_class,
 )
-from pydra.compose import shell
 from .fields import arg, out
 from .task import BidsAppTask as Task
 from .task import BidsAppOutputs as Outputs
@@ -28,7 +28,6 @@ def define(
     /,
     inputs: list[str | arg] | dict[str, arg | type] | None = None,
     outputs: list[str | out] | dict[str, out | type] | type | None = None,
-    image_tag: str | None = None,
     bases: ty.Sequence[type] = (),
     outputs_bases: ty.Sequence[type] = (),
     auto_attribs: bool = True,
@@ -69,12 +68,7 @@ def define(
         if inspect.isclass(wrapped):
             klass = wrapped
             executable = klass.executable
-            if image_tag is not None:
-                raise ValueError(
-                    f"Bids app image_tag of {wrapped} should be set as an attribute, not "
-                    "passed into the 'define' decorator"
-                )
-            img_tag = klass.image_tag
+            image_tag = klass.image_tag
             class_name = klass.__name__
             check_explicit_fields_are_none(klass, inputs, outputs)
             parsed_inputs, parsed_outputs = extract_fields_from_class(
@@ -87,7 +81,9 @@ def define(
                 skip_fields=["function"],
             )
         else:
-            if not isinstance(wrapped, str):
+            if isinstance(wrapped, Path):
+                wrapped = str(wrapped.absolute())
+            elif not isinstance(wrapped, str):
                 raise ValueError(
                     "wrapped must be a class or a str representing either the name of a "
                     "Docker image if executing the app as a Docker container, or the "
@@ -95,17 +91,31 @@ def define(
                     f"{wrapped!r}"
                 )
             klass = None
-            executable = wrapped
-            img_tag = image_tag
-            if name is None:
-                if img_tag:
-                    class_name = img_tag.split("/")[-1].split(":")[0]
+            if wrapped.startswith("/"):
+                executable = wrapped
+                image_tag = None
+            else:
+
+                if wrapped.startswith("docker://"):
+                    image_tag = wrapped.split("docker://")[-1]
                 else:
-                    class_name = re.sub(
-                        r"[^\w]", "_", Path(executable).name.split(".")[0]
+                    logger.info(
+                        "Assuming that the wrapped string, '%s' is a docker image tag. ",
+                        wrapped,
                     )
+                    image_tag = wrapped
+                if "::" in image_tag:
+                    image_tag, executable = image_tag.split("::")
+                else:
+                    executable = ""  # entrypoint of the container
+            if name is None:
+                if image_tag:
+                    class_name = image_tag.split("/")[-1].split(":")[0]
+                else:
+                    class_name = Path(executable).name.split(".")[0]
                     if class_name[0].isdigit():
                         class_name = DIGIT_TO_WORD[class_name[0]] + class_name[1:]
+                class_name = re.sub(r"[^a-zA-Z0-9]", "_", class_name)
 
             parsed_inputs = (
                 inputs if isinstance(inputs, dict) else {i.name: i for i in inputs}
@@ -133,7 +143,7 @@ def define(
             name="executable", type=str, default=executable, path="not/used"
         )
         parsed_inputs["image_tag"] = arg(
-            name="image_tag", type=str | None, default=img_tag, path="not/used"
+            name="image_tag", type=str | None, default=image_tag, path="not/used"
         )
 
         defn = build_task_class(
@@ -151,7 +161,7 @@ def define(
         return defn
 
     if wrapped is not None:
-        if not isinstance(wrapped, (str, type)):
+        if not isinstance(wrapped, (str, Path, type)):
             raise ValueError(f"wrapped must be a class or a str, not {wrapped!r}")
         return make(wrapped)
     return make
@@ -169,3 +179,21 @@ DIGIT_TO_WORD = {
     "8": "eight",
     "9": "nine",
 }
+
+
+def get_docker_entrypoint(image_tag: str) -> str:
+    """Pulls a given Docker image tag and inspects the image to get its
+    entrypoint/cmd
+
+    IMAGE_TAG is the tag of the Docker image to inspect"""
+    dc = docker.from_env()
+
+    dc.images.pull(image_tag)
+
+    image_attrs = dc.api.inspect_image(image_tag)["Config"]
+
+    executable = image_attrs["Entrypoint"]
+    if executable is None:
+        executable = image_attrs["Cmd"]
+
+    return executable

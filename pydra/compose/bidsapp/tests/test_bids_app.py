@@ -27,30 +27,28 @@ BIDS_OUTPUTS = [
 ]
 
 
-@pytest.mark.xfail(reason="Need to convert this to new environment syntax")
 def test_bids_app_docker(
     bids_validator_app_image: str, nifti_sample_dir: Path, work_dir: Path
 ):
-
-    kwargs = {}
 
     bids_dir = work_dir / "bids"
 
     shutil.rmtree(bids_dir, ignore_errors=True)
 
     TestBids = bidsapp.define(
-        executable=None,  # uses entrypoint
-        image_tag=bids_validator_app_image,
+        bids_validator_app_image + "::/launch.sh",
         inputs=BIDS_INPUTS,
         outputs=BIDS_OUTPUTS,
     )
 
-    for inpt in BIDS_INPUTS:
-        kwargs[inpt.name] = nifti_sample_dir.joinpath(
-            *inpt.path.split("/")
-        ).with_suffix(inpt.datatype.ext)
-
-    task = TestBids(dataset=bids_dir, **kwargs)
+    task = TestBids(
+        **{
+            inpt.name: nifti_sample_dir.joinpath(*inpt.path.split("/")).with_suffix(
+                inpt.type.ext
+            )
+            for inpt in BIDS_INPUTS
+        }
+    )
 
     result = task(worker="debug")
 
@@ -73,7 +71,7 @@ def test_bids_app_naked(
     os.chmod(launch_sh, stat.S_IRWXU)
 
     TestBids = bidsapp.define(
-        str(launch_sh),
+        launch_sh,
         inputs=BIDS_INPUTS,
         outputs=BIDS_OUTPUTS,
     )
