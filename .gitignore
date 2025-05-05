@@ -141,4 +141,4 @@ dmypy.json
 .DS_store
 
 # Generated files
-/pydra/compose/CHANGEME/_version.py
+/pydra/compose/bidsapp/_version.py

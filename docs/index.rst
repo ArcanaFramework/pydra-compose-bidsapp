@@ -1,4 +1,4 @@
-Welcome to pydra-compose-CHANGEME's documentation!
+Welcome to pydra-compose-bidsapp's documentation!
 ==================================================
 
 .. toctree::
