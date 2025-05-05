@@ -27,6 +27,7 @@ BIDS_OUTPUTS = [
 ]
 
 
+@pytest.mark.xfail(reason="this test will fail until nipype/pydra#822 is merged")
 def test_bids_app_docker(
     bids_validator_app_image: str, nifti_sample_dir: Path, work_dir: Path
 ):
@@ -36,7 +37,7 @@ def test_bids_app_docker(
     shutil.rmtree(bids_dir, ignore_errors=True)
 
     TestBids = bidsapp.define(
-        bids_validator_app_image + "::/launch.sh",
+        bids_validator_app_image,
         inputs=BIDS_INPUTS,
         outputs=BIDS_OUTPUTS,
     )

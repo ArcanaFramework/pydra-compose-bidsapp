@@ -6,7 +6,7 @@ from pydra.compose import shell
 @shell.define
 class BidsApp(shell.Task["BidsApp.Outputs"]):
 
-    executable: str = ""  # entrypoint of the container
+    executable = ""  # This should be changed to None once https://github.com/nipype/pydra/pull/822 is merged
 
     dataset_path: Directory = shell.arg(
         help="Path to BIDS dataset in the container",

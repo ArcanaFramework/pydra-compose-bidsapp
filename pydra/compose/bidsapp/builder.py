@@ -107,7 +107,7 @@ def define(
                 if "::" in image_tag:
                     image_tag, executable = image_tag.split("::")
                 else:
-                    executable = ""  # entrypoint of the container
+                    executable = None  # entrypoint of the container
             if name is None:
                 if image_tag:
                     class_name = image_tag.split("/")[-1].split(":")[0]
