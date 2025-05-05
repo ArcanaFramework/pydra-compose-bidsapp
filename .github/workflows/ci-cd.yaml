@@ -34,7 +34,6 @@ jobs:
       run: |
         pip install ".[test]"
         python -c "import pydra.compose.bidsapp as m; print(f'{m.__name__} {m.__version__} @ {m.__file__}')"
-        python -c "import pydra as m; print(f'{m.__name__} {m.__version__} @ {m.__file__}')"
     - name: Test with pytest
       run: |
         pytest -sv --doctest-modules pydra/compose/bidsapp \
