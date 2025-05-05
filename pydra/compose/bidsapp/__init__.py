@@ -2,7 +2,7 @@
 This is a basic doctest demonstrating that the package and pydra can both be successfully
 imported.
 
->>> import pydra.compose.bids_app_wrapper
+>>> import pydra.compose.bidsapp
 """
 
 try:
