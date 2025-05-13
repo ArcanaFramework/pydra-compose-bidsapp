@@ -67,8 +67,7 @@ def define(
     def make(wrapped: str | type) -> Task:
         if inspect.isclass(wrapped):
             klass = wrapped
-            executable = klass.executable
-            image_tag = klass.image_tag
+            app = klass.app
             class_name = klass.__name__
             check_explicit_fields_are_none(klass, inputs, outputs)
             parsed_inputs, parsed_outputs = extract_fields_from_class(
@@ -91,31 +90,21 @@ def define(
                     f"{wrapped!r}"
                 )
             klass = None
-            if wrapped.startswith("/"):
-                executable = wrapped
-                image_tag = None
-            else:
+            app = wrapped
 
-                if wrapped.startswith("docker://"):
-                    image_tag = wrapped.split("docker://")[-1]
-                else:
-                    logger.info(
-                        "Assuming that the wrapped string, '%s' is a docker image tag. ",
-                        wrapped,
-                    )
-                    image_tag = wrapped
-                if "::" in image_tag:
-                    image_tag, executable = image_tag.split("::")
-                else:
-                    executable = None  # entrypoint of the container
             if name is None:
-                if image_tag:
-                    class_name = image_tag.split("/")[-1].split(":")[0]
-                else:
-                    class_name = Path(executable).name.split(".")[0]
+                if app.startswith("/"):
+                    # Docker image name
+                    class_name = Path(app).name.split(".")[0]
                     if class_name[0].isdigit():
                         class_name = DIGIT_TO_WORD[class_name[0]] + class_name[1:]
+                    class_name = app.split("/")[-1].split(":")[0]
+                else:
+                    # Docker image name
+                    class_name = app.split("/")[-1].split(":")[0]
                 class_name = re.sub(r"[^a-zA-Z0-9]", "_", class_name)
+            else:
+                class_name = name
 
             parsed_inputs = (
                 inputs if isinstance(inputs, dict) else {i.name: i for i in inputs}
@@ -125,7 +114,9 @@ def define(
             )
 
             # Add in fields from base classes
-            parsed_inputs.update({n: getattr(Task, n) for n in Task.BASE_ATTRS})
+            parsed_inputs.update(
+                {n: getattr(Task, n) for n in Task.BASE_ATTRS if n != "app"}
+            )
             parsed_outputs.update({n: getattr(Outputs, n) for n in Outputs.BASE_ATTRS})
 
             parsed_inputs, parsed_outputs = ensure_field_objects(
@@ -139,12 +130,7 @@ def define(
         if clashing := set(parsed_inputs) & set(["exectuable", "image_tag"]):
             raise ValueError(f"{list(clashing)} are reserved input names")
 
-        parsed_inputs["executable"] = arg(
-            name="executable", type=str, default=executable, path="not/used"
-        )
-        parsed_inputs["image_tag"] = arg(
-            name="image_tag", type=str | None, default=image_tag, path="not/used"
-        )
+        parsed_inputs["app"] = arg(name="app", type=str, default=app, path=None)
 
         defn = build_task_class(
             Task,

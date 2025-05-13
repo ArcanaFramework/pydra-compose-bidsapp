@@ -66,33 +66,33 @@ BidsAppOutputsType = ty.TypeVar("BidsAppOutputsType", bound=BidsAppOutputs)
 @attrs.define(kw_only=True, auto_attribs=False, eq=False, repr=False)
 class BidsAppTask(base.Task[BidsAppOutputsType]):
 
-    _executor_name = "executable"
+    _executor_name = "app"
 
-    BASE_ATTRS = ("analysis_level", "json_edits", "flags")
+    BASE_ATTRS = ("analysis_level", "json_edits", "flags", "app")
 
     analysis_level: str = fields.arg(
         name="analysis_level",
         type=str,
         default="participant",
         help="Level of analysis to run the app at",
-        path="not/used",
+        path=None,
     )
-    json_edits: list[tuple[str, str]] = fields.arg(
+    json_edits: list[tuple[str, str]] | None = fields.arg(
         name="json_edits",
-        type=list[tuple[str, str]],
-        default=attrs.Factory(list),
-        path="not/used",
+        type=list[tuple[str, str]] | None,
+        default=None,
+        path=None,
     )
-    flags: str = fields.arg(
+    flags: str | None = fields.arg(
         name="flags",
-        type=str,
-        default="",
+        type=str | None,
+        default=None,
         help=(
             "Additional flags to pass to the app. These are passed as a single string "
             "and should be formatted as they would be on the command line "
             "(e.g. '--flag1 --flag2 value')"
         ),
-        path="not/used",
+        path=None,
     )
 
     def _run(self, job: "Job[BidsAppTask]", rerun: bool = True) -> None:
@@ -107,8 +107,26 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
         cache_root = Path.cwd() / "internal-cache"
         work_dir = Path.cwd() / "work-dir"
         work_dir.mkdir(parents=True, exist_ok=True)
+
+        if self.app.startswith("/"):
+            executable = self.app
+            image_tag = None
+        else:
+            if self.app.startswith("docker://"):
+                image_tag = self.app.split("docker://")[-1]
+            else:
+                logger.info(
+                    "Assuming that the wrapped string, '%s' is a docker image tag. ",
+                    self.app,
+                )
+                image_tag = self.app
+            if "::" in image_tag:
+                image_tag, executable = image_tag.split("::")
+            else:
+                executable = None  # entrypoint of the container
+
         app = BidsApp(
-            executable=self.executable,
+            executable=executable,
             dataset_path=frameset.id,
             output_path=output_dir,
             analysis_level=self.analysis_level,
@@ -116,7 +134,7 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
             flags=self.flags,
             work_dir=work_dir,
         )
-        environment = Docker(self.image_tag) if self.image_tag else Native()
+        environment = Docker(image_tag) if image_tag else Native()
         app(cache_root=cache_root, environment=environment)
 
     def _create_dataset(self) -> FrameSet:
@@ -142,9 +160,7 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
         #     self.json_edits + list(zip(je_args[::2], je_args[1::2]))
         # )
         input_fields: list[fields.arg] = [
-            f
-            for f in get_fields(self)
-            if f.name not in self.BASE_ATTRS + ("executable", "image_tag")
+            f for f in get_fields(self) if f.name not in self.BASE_ATTRS
         ]
         for inpt in input_fields:
             frameset.add_sink(inpt.name, inpt.type, path=inpt.path)

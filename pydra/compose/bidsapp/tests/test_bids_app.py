@@ -5,7 +5,6 @@ import shutil
 import pytest
 from fileformats.medimage import NiftiGzX, NiftiGzXBvec
 from pydra.compose import bidsapp
-from pydra.compose.bidsapp.task import DEFAULT_BIDS_ID
 from pydra.utils import asdict
 from fileformats.text import Plain as Text
 from fileformats.generic import Directory

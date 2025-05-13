@@ -33,17 +33,19 @@ class arg(base.Arg):
     name: str, optional
         The name of the field, used when specifying a list of fields instead of a mapping
         from name to field, by default it is None
-    path: str
+    path: str | None
         The path to where the input is stored within the dataset: the modality of the
         file followed by the BIDS suffix in the form 'modality/suffix'.
     """
 
     # the BIDS suffix that identifies the input
-    path: str = attrs.field()
+    path: str | None = attrs.field()
 
     @path.validator
     def _path_validator(self, attribute, value):
         """Validate the path of the input field"""
+        if value is None:
+            return
         if not isinstance(value, str):
             raise TypeError(f"Path must be a string, got {type(value)}")
         if not re.match(r"\w+/\w+", value):
