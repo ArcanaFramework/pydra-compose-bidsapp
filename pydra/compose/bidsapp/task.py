@@ -101,12 +101,12 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
         ),
         path=None,
     )
-    output_dir: Path | None = attrs.field(
+    output_dir: Path | None = fields.arg(
         type=Path | None,
         default=None,
         metadata={"help": "The directory where the outputs will be stored."},
     )
-    work_dir: Path | None = attrs.field(
+    work_dir: Path | None = fields.arg(
         type=Path | None,
         default=None,
         metadata={
