@@ -68,7 +68,14 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
 
     _executor_name = "app"
 
-    BASE_ATTRS = ("analysis_level", "json_edits", "flags", "app")
+    BASE_ATTRS = (
+        "analysis_level",
+        "json_edits",
+        "flags",
+        "app",
+        "output_dir",
+        "work_dir",
+    )
 
     analysis_level: str = fields.arg(
         name="analysis_level",
@@ -94,6 +101,18 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
         ),
         path=None,
     )
+    output_dir: Path | None = attrs.field(
+        type=Path | None,
+        default=None,
+        metadata={"help": "The directory where the outputs will be stored."},
+    )
+    work_dir: Path | None = attrs.field(
+        type=Path | None,
+        default=None,
+        metadata={
+            "help": "The directory where the temporary BIDS dataset will be created and Pydra cache stored."
+        },
+    )
 
     def _run(self, job: "Job[BidsAppTask]", rerun: bool = True) -> None:
         # Create a BIDS dataset and save input data into it
@@ -104,9 +123,20 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
             / DEFAULT_DERIVATIVES_NAME
             / f"sub-{DEFAULT_BIDS_ID}"
         )
-        cache_root = Path.cwd() / "internal-cache"
-        work_dir = Path.cwd() / "work-dir"
+        if self.output_dir:
+            output_dir = self.output_dir
+        else:
+            output_dir = Path.cwd() / "output-dir"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        if self.work_dir:
+            work_dir = self.work_dir
+        else:
+            work_dir = Path.cwd() / "work-dir"
         work_dir.mkdir(parents=True, exist_ok=True)
+        cache_root = work_dir / "internal-cache"
+        app_work_dir = work_dir / "app-work-dir"
+        cache_root.mkdir()
+        app_work_dir.mkdir()
 
         if self.app.startswith("/"):
             executable = self.app
@@ -132,7 +162,7 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
             analysis_level=self.analysis_level,
             participant_label=DEFAULT_BIDS_ID,
             flags=self.flags,
-            work_dir=work_dir,
+            work_dir=app_work_dir,
         )
         environment = Docker(image_tag) if image_tag else Native()
         app(cache_root=cache_root, environment=environment)
