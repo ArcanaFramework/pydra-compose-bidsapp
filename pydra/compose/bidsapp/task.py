@@ -104,14 +104,12 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
     output_dir: Path | None = fields.arg(
         type=Path | None,
         default=None,
-        metadata={"help": "The directory where the outputs will be stored."},
+        help="The directory where the outputs will be stored.",
     )
     work_dir: Path | None = fields.arg(
         type=Path | None,
         default=None,
-        metadata={
-            "help": "The directory where the temporary BIDS dataset will be created and Pydra cache stored."
-        },
+        help="The directory where the temporary BIDS dataset will be created and Pydra cache stored.",
     )
 
     def _run(self, job: "Job[BidsAppTask]", rerun: bool = True) -> None:
