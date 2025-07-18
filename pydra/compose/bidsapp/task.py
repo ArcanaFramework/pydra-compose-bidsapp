@@ -73,7 +73,6 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
         "json_edits",
         "flags",
         "app",
-        "output_dir",
         "work_dir",
     )
 
@@ -101,12 +100,6 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
         ),
         path=None,
     )
-    output_dir: Path | None = fields.arg(
-        type=Path | None,
-        default=None,
-        help="The directory where the outputs will be stored.",
-        path=None,
-    )
     work_dir: Path | None = fields.arg(
         type=Path | None,
         default=None,
@@ -123,10 +116,6 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
             / DEFAULT_DERIVATIVES_NAME
             / f"sub-{DEFAULT_BIDS_ID}"
         )
-        if self.output_dir:
-            output_dir = self.output_dir
-        else:
-            output_dir = Path.cwd() / "output-dir"
         output_dir.mkdir(parents=True, exist_ok=True)
         if self.work_dir:
             work_dir = self.work_dir
