@@ -42,12 +42,14 @@ def test_bids_app_docker(
     )
 
     task = TestBids(
+        work_dir=work_dir / "test-work",
+        output_dir=work_dir / "test-outputs",
         **{
             inpt.name: nifti_sample_dir.joinpath(*inpt.path.split("/")).with_suffix(
                 inpt.type.ext
             )
             for inpt in BIDS_INPUTS
-        }
+        },
     )
 
     result = task(worker="debug")
