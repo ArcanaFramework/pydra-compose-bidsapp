@@ -4,7 +4,7 @@ from pathlib import Path
 import logging
 from frametree.core import __version__
 from frametree.core.frameset import FrameSet
-from frametree.common import Clinical
+from frametree.axes.medimage import MedImage
 from frametree.bids.store import Bids
 from pydra.utils import asdict, get_fields
 from pydra.compose import base
@@ -53,7 +53,7 @@ class BidsAppOutputs(base.Outputs):
                 output_field.type,
                 path=path,
             )
-        row = frameset.row(Clinical.session, DEFAULT_BIDS_ID)
+        row = frameset.row(MedImage.session, DEFAULT_BIDS_ID)
         with frameset.store.connection:
             for output_field in output_fields:
                 setattr(outputs, output_field.name, row[output_field.name])
@@ -183,7 +183,7 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
         ]
         for inpt in input_fields:
             frameset.add_sink(inpt.name, inpt.type, path=inpt.path)
-        row = frameset.row(Clinical.session, DEFAULT_BIDS_ID)
+        row = frameset.row(MedImage.session, DEFAULT_BIDS_ID)
         with frameset.store.connection:
             for inpt in input_fields:
                 inpt_value = inputs[inpt.name]
