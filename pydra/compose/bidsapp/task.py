@@ -7,6 +7,7 @@ from frametree.core.frameset import FrameSet
 from frametree.axes.medimage import MedImage
 from frametree.bids.store import Bids
 from pydra.utils import asdict, get_fields
+from pydra.utils.typing import is_optional, optional_type
 from pydra.compose import base
 from pydra.environments.docker import Docker
 from pydra.environments.native import Native
@@ -50,7 +51,7 @@ class BidsAppOutputs(base.Outputs):
             path += "@" + DEFAULT_DERIVATIVES_NAME
             frameset.add_sink(
                 output_field.name,
-                output_field.type,
+                _column_datatype(output_field.type),
                 path=path,
             )
         row = frameset.row(MedImage.session, DEFAULT_BIDS_ID)
@@ -182,7 +183,7 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
             f for f in get_fields(self) if f.name not in self.BASE_ATTRS
         ]
         for inpt in input_fields:
-            frameset.add_sink(inpt.name, inpt.type, path=inpt.path)
+            frameset.add_sink(inpt.name, _column_datatype(inpt.type), path=inpt.path)
         row = frameset.row(MedImage.session, DEFAULT_BIDS_ID)
         with frameset.store.connection:
             for inpt in input_fields:
@@ -192,6 +193,28 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
                     continue
                 row[inpt.name] = inpt_value
         return frameset
+
+
+def _column_datatype(type_: ty.Any) -> ty.Any:
+    """The datatype to store a task field as within the BIDS dataset.
+
+    Optional fields are stored as the type they are optional of, as the column holds the
+    datatype the file is written as, and whether the app requires it is a property of
+    the field not of the data. Leaving the field type as-is would push a union into the
+    column, which the store can't derive a file extension from when building BIDS paths
+    for fields that haven't been provided.
+
+    Parameters
+    ----------
+    type_ : type
+        the type of the task field
+
+    Returns
+    -------
+    type
+        the datatype to add the column with
+    """
+    return optional_type(type_) if is_optional(type_) else type_
 
 
 # For running
