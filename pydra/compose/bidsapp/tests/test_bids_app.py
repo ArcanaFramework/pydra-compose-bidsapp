@@ -90,3 +90,54 @@ def test_bids_app_naked(
 
     for output in asdict(outputs).values():
         assert Path(output).exists()
+
+
+@pytest.mark.parametrize(
+    "json_edits",
+    [
+        {"anat/T1w": '.EditedField = "edited"'},
+        [("anat/T1w", '.EditedField = "edited"')],
+    ],
+)
+def test_bids_app_json_edits(
+    json_edits: dict[str, str] | list[tuple[str, str]],
+    mock_bids_app_script: str,
+    nifti_sample_dir: Path,
+    work_dir: Path,
+):
+    """Check that JSON edits can be passed as either a dict or a list of tuples and
+    are applied to the side-car files in the BIDS dataset passed to the app"""
+    launch_sh = work_dir / "launch.sh"
+    # Fail if the JSON edit hasn't been applied to the T1w side-car
+    check_edit = (
+        'grep -q \'"EditedField": "edited"\' '
+        "$BIDS_DATASET/sub-${SUBJ_ID}/anat/sub-${SUBJ_ID}_T1w.json || "
+        '{ echo "JSON edit not applied to T1w side-car"; exit 1; }\n'
+    )
+    with open(launch_sh, "w") as f:
+        f.write(
+            mock_bids_app_script.replace(
+                "# Write mock output files", check_edit + "# Write mock output files"
+            )
+        )
+    os.chmod(launch_sh, stat.S_IRWXU)
+
+    TestBids = bidsapp.define(
+        launch_sh,
+        inputs=BIDS_INPUTS,
+        outputs=BIDS_OUTPUTS,
+    )
+
+    task = TestBids(
+        json_edits=json_edits,
+        **{
+            i.name: nifti_sample_dir.joinpath(*i.path.split("/")).with_suffix(
+                i.type.ext
+            )
+            for i in BIDS_INPUTS
+        },
+    )
+    outputs = task(worker="debug")
+
+    for output in asdict(outputs).values():
+        assert Path(output).exists()

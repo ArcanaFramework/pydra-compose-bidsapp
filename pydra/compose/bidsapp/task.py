@@ -1,16 +1,19 @@
-import attrs
+import logging
 import typing as ty
 from pathlib import Path
-import logging
-from frametree.core import __version__
-from frametree.core.frameset import FrameSet
+
+import attrs
 from frametree.axes.medimage import MedImage
 from frametree.bids.store import Bids
-from pydra.utils import asdict, get_fields
-from pydra.utils.typing import is_optional, optional_type
-from pydra.compose import base
+from frametree.core import __version__
+from frametree.core.frameset import FrameSet
 from pydra.environments.docker import Docker
 from pydra.environments.native import Native
+from pydra.utils import asdict, get_fields
+from pydra.utils.typing import is_optional, optional_type
+
+from pydra.compose import base
+
 from . import fields
 from .app import BidsApp
 
@@ -84,9 +87,9 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
         help="Level of analysis to run the app at",
         path=None,
     )
-    json_edits: list[tuple[str, str]] | None = fields.arg(
+    json_edits: dict[str, str] | list[tuple[str, str]] | None = fields.arg(
         name="json_edits",
-        type=list[tuple[str, str]] | None,
+        type=dict[str, str] | list[tuple[str, str]] | None,
         default=None,
         path=None,
     )
