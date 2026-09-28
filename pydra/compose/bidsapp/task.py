@@ -89,7 +89,7 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
     )
     json_edits: dict[str, str] | list[tuple[str, str]] | None = fields.arg(
         name="json_edits",
-        type=list[tuple[str, str]] | None,
+        type=dict[str, str] | list[tuple[str, str]] | None,
         default=None,
         path=None,
     )
