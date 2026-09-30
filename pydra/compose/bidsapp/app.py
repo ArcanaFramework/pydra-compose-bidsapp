@@ -42,7 +42,6 @@ class BidsApp(shell.Task["BidsApp.Outputs"]):
     flags: list[str] = shell.arg(
         help="Additional flags to pass to the app",
         argstr="",
-        sep=None,
         default=(),
         converter=flags_converter,
         position=-1,
