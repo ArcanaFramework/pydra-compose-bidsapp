@@ -1,6 +1,10 @@
 from pathlib import Path
+
 from fileformats.generic import Directory
+
 from pydra.compose import shell
+
+from .helpers import flags_converter
 
 
 @shell.define
@@ -35,10 +39,11 @@ class BidsApp(shell.Task["BidsApp.Outputs"]):
         position=4,
     )
 
-    flags: str | None = shell.arg(
+    flags: list[str] = shell.arg(
         help="Additional flags to pass to the app",
         argstr="",
-        default=None,
+        default=(),
+        converter=flags_converter,
         position=-1,
     )
 
