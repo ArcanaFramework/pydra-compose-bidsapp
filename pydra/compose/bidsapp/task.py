@@ -1,4 +1,5 @@
 import logging
+import shlex
 import typing as ty
 from pathlib import Path
 
@@ -67,6 +68,12 @@ class BidsAppOutputs(base.Outputs):
 BidsAppOutputsType = ty.TypeVar("BidsAppOutputsType", bound=BidsAppOutputs)
 
 
+def flags_converter(value: str | list[str]) -> list[str]:
+    if isinstance(value, str):
+        return shlex.split(value)
+    return list(value)
+
+
 @attrs.define(kw_only=True, auto_attribs=False, eq=False, repr=False)
 class BidsAppTask(base.Task[BidsAppOutputsType]):
 
@@ -93,12 +100,13 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
         default=None,
         path=None,
     )
-    flags: str | None = fields.arg(
+    flags: list[str] = fields.arg(
         name="flags",
-        type=str | None,
-        default=None,
+        type=list[str],
+        default=(),
+        converter=flags_converter,
         help=(
-            "Additional flags to pass to the app. These are passed as a single string "
+            "Additional flags to pass to the app. These are passed as a list of strings "
             "and should be formatted as they would be on the command line "
             "(e.g. '--flag1 --flag2 value')"
         ),
