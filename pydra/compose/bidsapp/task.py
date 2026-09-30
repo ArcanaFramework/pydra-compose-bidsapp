@@ -1,5 +1,4 @@
 import logging
-import shlex
 import typing as ty
 from pathlib import Path
 
@@ -17,6 +16,7 @@ from pydra.compose import base
 
 from . import fields
 from .app import BidsApp
+from .helpers import flags_converter
 
 logger = logging.getLogger("pydra.compose.bidsapp")
 
@@ -66,12 +66,6 @@ class BidsAppOutputs(base.Outputs):
 
 
 BidsAppOutputsType = ty.TypeVar("BidsAppOutputsType", bound=BidsAppOutputs)
-
-
-def flags_converter(value: str | list[str]) -> list[str]:
-    if isinstance(value, str):
-        return shlex.split(value)
-    return list(value)
 
 
 @attrs.define(kw_only=True, auto_attribs=False, eq=False, repr=False)

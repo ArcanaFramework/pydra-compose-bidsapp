@@ -4,7 +4,7 @@ from fileformats.generic import Directory
 
 from pydra.compose import shell
 
-from .task import flags_converter
+from .helpers import flags_converter
 
 
 @shell.define
