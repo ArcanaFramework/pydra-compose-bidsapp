@@ -7,6 +7,7 @@ from fileformats.medimage import NiftiGzX, NiftiGzXBvec
 from pydra.compose import bidsapp
 from pydra.utils import asdict
 from fileformats.text import Plain as Text
+from fileformats.text.unicode import Html
 from fileformats.generic import Directory
 
 
@@ -90,6 +91,63 @@ def test_bids_app_naked(
 
     for output in asdict(outputs).values():
         assert Path(output).exists()
+
+    # The whole directory output is the subject directory the app created within its
+    # top-level output directory, not one nested inside another subject directory
+    whole_dir = Path(outputs.whole_dir)
+    assert whole_dir.parts[-3:] == ("derivatives", "app", "sub-subject")
+    assert not (whole_dir / "sub-subject").exists()
+    assert (whole_dir / "anat" / "sub-subject_nested.txt").exists()
+    assert Path(outputs.a_file).parent == whole_dir
+    # Dataset-level files stay outside of the subject directory
+    assert (whole_dir.parent / "dataset_description.json").exists()
+    assert not (whole_dir / "dataset_description.json").exists()
+
+
+def test_bids_app_outputs_above_subject_dir(
+    mock_bids_app_script: str, nifti_sample_dir: Path, work_dir: Path
+):
+    """Outputs can point to what the app writes above the subject directory"""
+    launch_sh = work_dir / "launch.sh"
+    launch_sh.write_text(mock_bids_app_script)
+    os.chmod(launch_sh, stat.S_IRWXU)
+
+    TestBids = bidsapp.define(
+        launch_sh,
+        inputs=BIDS_INPUTS,
+        outputs=[
+            bidsapp.out(name="whole_output", path="..", type=Directory),
+            bidsapp.out(name="report", path="../sub-subject.html", type=Html),
+            bidsapp.out(name="logs", path="../logs", type=Directory),
+            bidsapp.out(name="nested", path="anat/nested", type=Text),
+        ],
+    )
+
+    task = TestBids(
+        **{
+            i.name: nifti_sample_dir.joinpath(*i.path.split("/")).with_suffix(
+                i.type.ext
+            )
+            for i in BIDS_INPUTS
+        },
+    )
+    outputs = task(worker="debug")
+
+    whole_output = Path(outputs.whole_output)
+    assert whole_output.parts[-2:] == ("derivatives", "app")
+    assert (whole_output / "dataset_description.json").exists()
+    assert (whole_output / "sub-subject" / "anat").is_dir()
+    # The frameset definition saved by the store isn't mixed in with the app's output
+    assert not (whole_output / "definition.yaml").exists()
+    assert Path(outputs.report) == whole_output / "sub-subject.html"
+    assert Path(outputs.logs) == whole_output / "logs"
+    # Outputs from within the subject directory are still resolved alongside them
+    assert Path(outputs.nested).parent == whole_output / "sub-subject" / "anat"
+
+
+def test_bids_app_output_outside_of_output_dir():
+    with pytest.raises(ValueError, match="outside of the app's output directory"):
+        bidsapp.out(name="escaped", path="../../other", type=Directory)
 
 
 @pytest.mark.parametrize(

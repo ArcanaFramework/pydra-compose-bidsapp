@@ -1,4 +1,5 @@
 import attrs
+import posixpath
 import re
 from pydra.compose import base
 
@@ -77,7 +78,9 @@ class out(base.Out):
     path: str, optional
         The path to where the output is stored within the derivatives directory, the
         namespace of the derivative followed by suffix of the output file in the
-        form 'modality/suffix'.
+        form 'modality/suffix'. Paths starting with '..' are file-system paths relative
+        to the subject directory, for outputs the app writes above it, e.g.
+        '../sub-subject.html', or '..' for the whole of the app's output directory.
     """
 
     # the path the file will be stored within the deriavtives directory
@@ -88,3 +91,7 @@ class out(base.Out):
         """Validate the path of the input field"""
         if not isinstance(value, str):
             raise TypeError(f"Path must be a string, got {type(value)}")
+        if posixpath.normpath(value).startswith("../.."):
+            raise ValueError(
+                f"Path must not point outside of the app's output directory, got {value}"
+            )

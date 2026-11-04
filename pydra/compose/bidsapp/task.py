@@ -1,4 +1,5 @@
 import logging
+import os
 import typing as ty
 from pathlib import Path
 
@@ -47,7 +48,23 @@ class BidsAppOutputs(base.Outputs):
         outputs = super()._from_job(job)
         frameset: FrameSet = job.return_values["frameset"]
         output_fields: ty.List[fields.out] = get_fields(cls)
+        # Paths above the subject directory aren't part of a row of the dataset, so they
+        # are resolved directly from the file-system instead of through the store
+        subject_dir = (
+            Path(frameset.id)
+            / "derivatives"
+            / DEFAULT_DERIVATIVES_NAME
+            / f"sub-{DEFAULT_BIDS_ID}"
+        )
+        row_fields = []
         for output_field in output_fields:
+            if _is_above_subject_dir(output_field.path):
+                fspath = os.path.normpath(subject_dir / output_field.path)
+                datatype = _column_datatype(output_field.type)
+                setattr(outputs, output_field.name, datatype(fspath))
+            else:
+                row_fields.append(output_field)
+        for output_field in row_fields:
             if output_field.path:
                 path = output_field.path
             else:
@@ -60,7 +77,7 @@ class BidsAppOutputs(base.Outputs):
             )
         row = frameset.row(MedImage.session, DEFAULT_BIDS_ID)
         with frameset.store.connection:
-            for output_field in output_fields:
+            for output_field in row_fields:
                 setattr(outputs, output_field.name, row[output_field.name])
         return outputs
 
@@ -116,12 +133,9 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
     def _run(self, job: "Job[BidsAppTask]", rerun: bool = True) -> None:
         # Create a BIDS dataset and save input data into it
         job.return_values["frameset"] = frameset = self._create_dataset()
-        output_dir = (
-            Path(frameset.id)
-            / "derivatives"
-            / DEFAULT_DERIVATIVES_NAME
-            / f"sub-{DEFAULT_BIDS_ID}"
-        )
+        # The top-level output directory, within which the app creates the subject
+        # directory, as specified by the BIDS Apps standard
+        output_dir = Path(frameset.id) / "derivatives" / DEFAULT_DERIVATIVES_NAME
         output_dir.mkdir(parents=True, exist_ok=True)
         if self.work_dir:
             work_dir = self.work_dir
@@ -200,6 +214,12 @@ class BidsAppTask(base.Task[BidsAppOutputsType]):
         return frameset
 
 
+def _is_above_subject_dir(path: str) -> bool:
+    """Whether an output path points above the subject directory the app created, i.e.
+    to the top-level output directory of the app or something else within it"""
+    return path == ".." or path.startswith("../")
+
+
 def _column_datatype(type_: ty.Any) -> ty.Any:
     """The datatype to store a task field as within the BIDS dataset.
 
@@ -226,7 +246,9 @@ def _column_datatype(type_: ty.Any) -> ty.Any:
 CONTAINER_DERIV_PATH = "/frametree_bids_outputs"
 CONTAINER_DATASET_PATH = "/frametree_bids_dataset"
 
-DEFAULT_BIDS_ID = "DEFAULT"
+DEFAULT_BIDS_ID = "subject"
 DEFAULT_FRAMESET_NAME = "DEFAULT"
-DEFAULT_DERIVATIVES_NAME = "DEFAULT"
+# Differs from the frameset name so the app starts with an empty output directory, as the
+# store saves the frameset definition in 'derivatives/<frameset-name>'
+DEFAULT_DERIVATIVES_NAME = "app"
 OUTPUT_DIR_NAME = "output-dir"
