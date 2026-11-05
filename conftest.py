@@ -10,6 +10,18 @@ from fileformats.medimage import NiftiGzX
 
 PKG_DIR = Path(__file__).parent
 
+# Mimics the layout real BIDS apps write to their output directory, with dataset-level
+# files at the top level and the results in a subject directory (e.g. fMRIPrep)
+MOCK_BIDS_APP_OUTPUTS = """# Write mock output files to the 'derivatives' Directory
+mkdir -p $OUTPUTS_DIR/logs $OUTPUTS_DIR/sub-${SUBJ_ID}/anat
+echo '{}' > $OUTPUTS_DIR/dataset_description.json
+echo 'log' > $OUTPUTS_DIR/logs/run.log
+echo 'report' > $OUTPUTS_DIR/sub-${SUBJ_ID}.html
+echo 'file1' > $OUTPUTS_DIR/sub-${SUBJ_ID}/sub-${SUBJ_ID}_file1.txt
+echo 'file2' > $OUTPUTS_DIR/sub-${SUBJ_ID}/sub-${SUBJ_ID}_file2.txt
+echo 'nested' > $OUTPUTS_DIR/sub-${SUBJ_ID}/anat/sub-${SUBJ_ID}_nested.txt
+"""
+
 
 @pytest.fixture(scope="session")
 def build_cache_dir() -> Path:
@@ -67,11 +79,7 @@ BIDS_DATASET=$1
 OUTPUTS_DIR=$2
 SUBJ_ID=$5
 {file_tests}
-# Write mock output files to 'derivatives' Directory
-mkdir -p $OUTPUTS_DIR
-echo 'file1' > $OUTPUTS_DIR/sub-${{SUBJ_ID}}_file1.txt
-echo 'file2' > $OUTPUTS_DIR/sub-${{SUBJ_ID}}_file2.txt
-"""
+{MOCK_BIDS_APP_OUTPUTS}"""
 
 
 # For debugging in IDE's don't catch raised exceptions and let the IDE
@@ -153,11 +161,7 @@ if [[ "$output" != *"{SUCCESS_STR}"* ]]; then
     echo $output
     exit 1;
 fi
-# Write mock output files to 'derivatives' Directory
-mkdir -p $OUTPUTS_DIR
-echo 'file1' > $OUTPUTS_DIR/sub-${{SUBJ_ID}}_file1.txt
-echo 'file2' > $OUTPUTS_DIR/sub-${{SUBJ_ID}}_file2.txt
-"""
+{MOCK_BIDS_APP_OUTPUTS}"""
 
 
 BIDS_VALIDATOR_DOCKER = "bids/validator:latest"
